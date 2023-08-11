@@ -27,7 +27,7 @@ struct MRZCodeFactory {
 
         switch format {
         case .td1:
-            documentNumberField = formatter.createStringValidatedField(
+            documentNumberField = formatter.createDocumentNumberValidatedField(
                 from: firstLine,
                 at: 5,
                 length: 9,

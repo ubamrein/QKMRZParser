@@ -20,6 +20,7 @@ struct Field {
 
 // MARK: ValidatedField
 protocol ValidatedFieldProtocol {
+    var rawValues: [String] { get }
     var rawValue: String { get }
     var checkDigit: String { get }
     var isValid: Bool { get }
@@ -27,12 +28,18 @@ protocol ValidatedFieldProtocol {
 
 extension ValidatedFieldProtocol {
     var isValid: Bool {
-        return MRZFieldFormatter.isValueValid(rawValue, checkDigit: checkDigit)
+        for rv in rawValues {
+            if  MRZFieldFormatter.isValueValid(rv, checkDigit: checkDigit) {
+                return true
+            }
+        }
+        return false
     }
 }
 
 struct ValidatedField<T>: ValidatedFieldProtocol {
     let value: T
-    let rawValue: String
+    let rawValues: [String]
+    let rawValue : String
     let checkDigit: String
 }

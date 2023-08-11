@@ -31,8 +31,8 @@ struct MRZFieldFormatter {
         length: Int,
         fieldType: MRZFieldType
     ) -> Field {
-        let rawValue = getRawValue(from: string, startIndex: startIndex, length: length, fieldType: fieldType)
-        return Field(value: text(from: rawValue), rawValue: rawValue)
+        let rawValue = getRawValues(from: string, startIndex: startIndex, length: length, fieldType: fieldType)
+        return Field(value: text(from: rawValue[0]), rawValue: rawValue[0])
     }
 
     func createNamesField(
@@ -40,8 +40,8 @@ struct MRZFieldFormatter {
         at startIndex: Int,
         length: Int
     ) -> NamesField {
-        let rawValue = getRawValue(from: string, startIndex: startIndex, length: length, fieldType: .names)
-        return names(from: rawValue)
+        let rawValue = getRawValues(from: string, startIndex: startIndex, length: length, fieldType: .names)
+        return names(from: rawValue[0])
     }
 
     enum DateValidatedFieldType {
@@ -64,18 +64,18 @@ struct MRZFieldFormatter {
         length: Int,
         fieldType: DateValidatedFieldType
     ) -> ValidatedField<Date?> {
-        let rawValue = getRawValue(from: string, startIndex: startIndex, length: length, fieldType: fieldType.mrzFieldType)
+        let rawValues = getRawValues(from: string, startIndex: startIndex, length: length, fieldType: fieldType.mrzFieldType)
         let checkDigit = getCheckDigit(from: string, endIndex: startIndex + length, fieldType: fieldType.mrzFieldType)
 
         let value: Date?
         switch fieldType {
         case .birthdate:
-            value = birthdate(from: rawValue)
+            value = birthdate(from: rawValues[0])
         case .expiryDate:
-            value = expiryDate(from: rawValue)
+            value = expiryDate(from: rawValues[0])
         }
 
-        return ValidatedField(value: value, rawValue: rawValue, checkDigit: checkDigit)
+        return ValidatedField(value: value, rawValues: rawValues, rawValue: rawValues[0], checkDigit: checkDigit)
     }
 
     func createStringValidatedField(
@@ -85,7 +85,7 @@ struct MRZFieldFormatter {
         fieldType: MRZFieldType,
         checkDigitFollows: Bool = true
     ) -> ValidatedField<String> {
-        let rawValue = getRawValue(
+        let rawValue = getRawValues(
             from: string,
             startIndex: startIndex,
             length: length,
@@ -96,24 +96,48 @@ struct MRZFieldFormatter {
             endIndex: startIndex + length,
             fieldType: fieldType
         ) : ""
-
-        return ValidatedField(value: text(from: rawValue), rawValue: rawValue, checkDigit: checkDigit)
+        return ValidatedField(value: text(from: rawValue[0]), rawValues: rawValue, rawValue: rawValue[0], checkDigit: checkDigit)
     }
 
-    private func getRawValue(
+    func createDocumentNumberValidatedField(
+        from string: String,
+        at startIndex: Int,
+        length: Int,
+        fieldType: MRZFieldType,
+        checkDigitFollows: Bool = true) -> ValidatedField<String> {
+            let rawValues = getRawValues(
+                from: string,
+                startIndex: startIndex,
+                length: length,
+                fieldType: fieldType
+            )
+            let checkDigit = checkDigitFollows ? getCheckDigit(
+                from: string,
+                endIndex: startIndex + length,
+                fieldType: fieldType
+            ) : ""
+            var value = rawValues[0]
+            for rawValue in rawValues {
+                if  MRZFieldFormatter.isValueValid(rawValue, checkDigit: checkDigit) {
+                    value = rawValue
+                    break
+                }
+            }
+            return ValidatedField(value: text(from: value), rawValues: rawValues, rawValue: value, checkDigit: checkDigit)
+        }
+    private func getRawValues(
         from string: String,
         startIndex: Int,
         length: Int,
         fieldType: MRZFieldType
-    ) -> String {
+    ) -> [String] {
         let endIndex = startIndex + length
-        var value = string.substring(startIndex, to: (endIndex - 1))
-
+        let value = string.substring(startIndex, to: (endIndex - 1))
+        var candidates : [String] = []
         if isOCRCorrectionEnabled {
-            value = ocrCorrector.correct(value, fieldType: fieldType)
+            candidates = ocrCorrector.getCandidates(value, fieldType: fieldType)
         }
-
-        return value
+        return candidates
     }
 
     private func getCheckDigit(
